@@ -841,7 +841,7 @@ def plot_gnss(xs,ys,uxs,uys,uzs,title=None,names=None,euxs=None,euys=None,euzs=N
     ax.xaxis.set_major_locator(plt.MaxNLocator(4))
     plt.show()
 
-def plot_gnss_pygmt(csvfile, uxs=None, uys=None, uzs=None, scalebar=10, output='figure_pygmt.png', title=None, points=None, epoints=None, lpoints=None, errx=None, erry=None, errz=None, arrowscale=0.01, ignore=[]):
+def plot_gnss_pygmt(csvfile, uxs=None, uys=None, uzs=None, scalebar=10, output='figure_pygmt.png', title=None, points=None, epoints=None, lpoints=None, errx=None, erry=None, errz=None, arrowscale=0.01, ignore=[], fontsize = None, uxs2=None, uys2=None, uzs2=None, show_names= True):
     """
     Plots GNSS dataset with pygmt from csv file
 
@@ -875,6 +875,12 @@ def plot_gnss_pygmt(csvfile, uxs=None, uys=None, uzs=None, scalebar=10, output='
             uxs=np.array([uxs[i] for i in range(len(uxs)) if namest[i] not in namesf])
             uys=np.array([uys[i] for i in range(len(uys)) if namest[i] not in namesf])
             uzs=np.array([uzs[i] for i in range(len(uzs)) if namest[i] not in namesf])
+            #for the second dataset everything must match so it must ignore the reference station as well
+            if uxs2 is not None:
+                uxs2=np.array([uxs2[i] for i in range(len(uxs2)) if namest[i] not in namesf])
+                uys2=np.array([uys2[i] for i in range(len(uys2)) if namest[i] not in namesf])
+                if uzs2 is not None:
+                    uzs2=np.array([uzs2[i] for i in range(len(uzs2)) if namest[i] not in namesf])
 
     if erry is None:
         sxs=euxs
@@ -885,11 +891,11 @@ def plot_gnss_pygmt(csvfile, uxs=None, uys=None, uzs=None, scalebar=10, output='
         sys=erry
         szs=errz
 
-    fig = plot_gnss_data(names, lons, lats, uxs, uys, uzs, sxs, sys, szs, scalebar, output, title, points, epoints, lpoints, arrowscale, ignore)
+    fig = plot_gnss_data(names, lons, lats, uxs, uys, uzs, sxs, sys, szs, scalebar, output, title, points, epoints, lpoints, arrowscale, ignore, fontsize,uxs2, uys2, uzs2, show_names)
 
     fig.show()
 
-def plot_gnss_data(names, lons, lats, uxs, uys, uzs, sxs, sys, szs, scalebar=10, output='figure_pygmt.png', title=None, points=None, epoints=None, lpoints=None, arrowscale=None, ignore=[], fontsize=None):
+def plot_gnss_data(names, lons, lats, uxs, uys, uzs, sxs, sys, szs, scalebar=10, output='figure_pygmt.png', title=None, points=None, epoints=None, lpoints=None, arrowscale=None, ignore=[], fontsize=None,  uxs2 = None, uys2 =None, uzs2 =None, show_names = True):
     """
     Plots GNSS dataset with pygmt, horizontal velocities are represented by blue arrows
     vertical velocities are represented by red arrows
@@ -936,9 +942,12 @@ def plot_gnss_data(names, lons, lats, uxs, uys, uzs, sxs, sys, szs, scalebar=10,
         names=list(names)+[str(int(arrowscale*1e2))+"cm/yr"]
     else:
         names=list(names)+[str(float(arrowscale*1e2))+"cm/yr"]
-    uxs=np.array(uxs.tolist()+[arrowscale])
+    uxs_has_data = np.any(uxs != 0)
+    uzs_has_data = np.any(uzs != 0)
+
+    uxs=np.array(uxs.tolist()+[arrowscale if uxs_has_data else 0.000])
     uys=np.array(uys.tolist()+[0.000])
-    uzs=np.array(uzs.tolist()+[arrowscale])
+    uzs=np.array(uzs.tolist()+[arrowscale if uzs_has_data else 0.000])
 
     sxs=np.array(sxs.tolist()+[0.000])
     sys=np.array(sys.tolist()+[0.000])
@@ -965,6 +974,37 @@ def plot_gnss_data(names, lons, lats, uxs, uys, uzs, sxs, sys, szs, scalebar=10,
             "north_sigma": szs*0,
         }
     )
+
+    # new edits: build a second dataset if its provided, for the purposes of comparison
+    if uxs2 is not None:
+        uxs2_has_data = np.any(uxs2 != 0)
+        uzs2_has_data = uzs2 is not None and np.any(uzs2 != 0)
+        
+        uxs2_padded = np.array(uxs2.tolist()+[arrowscale if uxs2_has_data else 0.000])
+        uys2_padded = np.array(uys2.tolist()+[0.000])
+        uzs2_padded = np.array(uzs2.tolist()+[arrowscale if uzs2_has_data else 0.000]) if uzs2 is not None else None
+
+        df2 = pd.DataFrame(
+            data={
+                "x": lons,
+                "y": lats,
+                "east_velocity": uxs2_padded*1e3,
+                "north_velocity": uys2_padded*1e3,
+                "east_sigma": sxs*0,
+                "north_sigma": sys*0,
+            }
+        )
+        if uzs2_padded is not None:
+            df3 = pd.DataFrame(
+                data={
+                    "x": lons,
+                    "y": lats,
+                    "east_velocity": uxs2_padded*0*3e6,
+                    "north_velocity": uzs2_padded*1e3,
+                    "east_sigma": sxs*0,
+                    "north_sigma": szs*0,
+                }
+            )  
 
     grid_data = '@earth_relief_03s' 
     grid = pygmt.grdcut(grid_data,
@@ -1005,31 +1045,40 @@ def plot_gnss_data(names, lons, lats, uxs, uys, uzs, sxs, sys, szs, scalebar=10,
 
     fig.coast(shorelines="0.5p,black",lakes='+l',map_scale=str(lonll)+'/'+str(latll)+'/'+str(latll)+'/'+str(scalebar),water="white")
 
-    if fontsize is None:
-        fig.text(x=lons,y=np.array(lats)-float(inter/20),text=names,fill='white',font="30p,Helvetica,black")
-    else:
-        fig.text(x=lons,y=np.array(lats)-float(inter/20),text=names,fill='white',font=f'{fontsize}p,Helvetica,black')
+    if show_names:
+        if fontsize is None:
+            fig.text(x=lons,y=np.array(lats)-float(inter/20),text=names,fill='white',font="30p,Helvetica,black")
+        else:
+            fig.text(x=lons,y=np.array(lats)-float(inter/20),text=names,fill='white',font=f'{fontsize}p,Helvetica,black')
 
 
     fig.velo(
         data=df,
         region=region,
-        pen="5p,blue",
-        line="5p,blue",
+        pen="2p,blue",
+        line="2p,blue",
         projection='M8i',
         spec="e"+str(0.25/(arrowscale*1e2))+"/0.39/10",
-        vector="0.7c+p0.5p+e+gblue",
+        vector="0.4c+p0.5p+e+gblue",
     )
 
     fig.velo(
         data=df1,
         region=region,
-        pen="5p,red",
-        line="5p,red",
+        pen="2p,red",
+        line="2p,red",
         projection='M8i',
         spec="e"+str(0.25/(arrowscale*1e2))+"/0.39/10",
-        vector="0.7c+p0.5p+e+gred",
+        vector="0.4c+p0.5p+e+gred",
     )
+
+    #new, draw another dataset on top using pink and purple
+    if uxs2 is not None:
+        fig.velo(data=df2, region=region, pen="2p,pink", line="2p,pink", projection='M8i',
+                 spec="e"+str(0.25/(arrowscale*1e2))+"/0.39/10", vector="0.4c+p0.5p+e+gpink")
+        if uzs2 is not None:
+            fig.velo(data=df3, region=region, pen="2p,purple", line="2p,purple", projection='M8i',
+                     spec="e"+str(0.25/(arrowscale*1e2))+"/0.39/10", vector="0.4c+p0.5p+e+gpurple")
 
     if points is not None:
         for i in range(len(points)):
