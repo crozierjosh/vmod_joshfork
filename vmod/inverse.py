@@ -33,6 +33,8 @@ class Inverse:
        obs (Data): data object containing one or more datasets
        minresidual (float): minimum residual achieved with any inversion algorithm
        minparms (array): parameters corresponding to the minimum residual
+       use_uncertainty_hyperparam: True to use an extra hyperparameter to auto-scale
+         uncertainties
    """
    def __init__(self, obs):
        self.sources = []       #simple list that will contain instances of class Source
@@ -44,6 +46,7 @@ class Inverse:
        self.thin=None
        self.minresidual=None
        self.minparms=None
+       self.use_uncertainty_hyperparam=True
   
    #add a new source to the geometry
    def register_source(self, source):
@@ -218,7 +221,10 @@ class Inverse:
        model = self.get_model(theta[0:-1])
        diff = data - model
        std_devs = copy.copy(errors)
-       std_devs[0:inilen] = std_devs[0:inilen]/(10**theta[-1])
+       if self.use_uncertainty_hyperparam:
+           std_devs[0:inilen] = std_devs[0:inilen]/(10**theta[-1])
+       else:
+           std_devs[0:inilen] = std_devs[0:inilen]
        log_std_devs = np.log(std_devs)
 
 
@@ -250,27 +256,37 @@ class Inverse:
        #print('likeli',np.isnan(likeli))
        return lp + likeli
   
-   def mcmc_em(self,name=None,move=None, nwalkers_per_dim = 2):
+   def mcmc_em(self,name=None,move=None, nwalkers_per_dim = 2, use_uncertainty_hyperparam=True):
        """
        Bayesian inversion approach with multiple algorithms using the emcee library
      
        Parameters:
            name (str): filename for the h5 file that will contain the traces
            move (str): update algorithm for the steps (metropolis, stretch, kde, de, desnooker, redblue)
+           use_uncertainty_hyperparam: True to use an extra hyperparameter to auto-scale
+                uncertainties.
          
        Returns:
            traces (array): traces that will give the posterior distribution for the parameters
        """
        import emcee
+
+       self.use_uncertainty_hyperparam = use_uncertainty_hyperparam
      
        inis=[]
+       lows = []
+       highs = []
        for k,source in enumerate(self.sources):
            parnames=source.get_parnames()
            print('Get parnames', parnames)
            for i in range(source.get_num_params()):
                low,high,ini=self.par2log(source,i)
                inis.append(ini)
+               lows.append(low)
+               highs.append(high)
        inis.append(0.0)
+       lows.append(0.0)
+       highs.append(1.0)
        np.random.seed(42)
        steps,burnin,thin=self.get_numsteps()
        #rng = np.random.default_rng(seed=42)
@@ -284,7 +300,10 @@ class Inverse:
 
 
        if move=='metropolis':
-           moves=emcee.moves.GaussianMove(1.0)
+           # using variance in each dimension of roughly 1/8 of the dimension range
+           # seems generally reasonable, but this could be made into an adjustable
+           # parameter if needed
+           moves=emcee.moves.GaussianMove((np.array(highs) - np.array(lows))/8)
        elif move=='stretch':
            moves=emcee.moves.StretchMove()
        elif move=='kde':
@@ -317,8 +336,6 @@ class Inverse:
                     print(f"Effective samples per parameter: {n_samplez / tau}")
                     print(f"Need at least 50*tau = {50 * tau} samples")
                 #   print("Recommended min steps per walker:", 50*max(tau))
-                    full_chain = sampler.get_chain()  
-                    np.save(name+'_full_chain.npy', full_chain)
                except Exception as e:
                    print("Autocorr warning:", e)
                traces = sampler.get_chain(discard=int(burnin/nwalkers), thin=int(thin/nwalkers), flat=True)
@@ -326,6 +343,9 @@ class Inverse:
                print('Inversion interrupted')
                reader = emcee.backends.HDFBackend(name+'.h5')
                traces = reader.get_chain(discard=int(burnin/nwalkers), thin=int(thin/nwalkers), flat=True)
+
+       full_chain = sampler.get_chain()  
+       # np.save(name+'_full_chain.npy', full_chain)
 
        traces=traces.T.tolist()[0:-1]
       
@@ -340,9 +360,11 @@ class Inverse:
       
        with open(name+'.pkl', 'wb') as f:
            pickle.dump(solution, f)
-       subprocess.call('rm -rf '+name+'.h5',shell=True)
+
+       #subprocess.call('rm -rf '+name+'.h5',shell=True)
+       os.remove(name+'.h5')
       
-       return traces
+       return traces, full_chain
   
    def mcmc(self,name=None):
        """
