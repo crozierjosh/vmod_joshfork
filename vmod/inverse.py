@@ -282,6 +282,7 @@ class Inverse:
        nwalkers, ndim = pos.shape
        print('Number of walkers/chains is: ', nwalkers)
 
+
        if move=='metropolis':
            moves=emcee.moves.GaussianMove(1.0)
        elif move=='stretch':
@@ -317,6 +318,7 @@ class Inverse:
                     print(f"Need at least 50*tau = {50 * tau} samples")
                 #   print("Recommended min steps per walker:", 50*max(tau))
                     full_chain = sampler.get_chain()  
+                    np.save(name+'_full_chain.npy', full_chain)
                except Exception as e:
                    print("Autocorr warning:", e)
                traces = sampler.get_chain(discard=int(burnin/nwalkers), thin=int(thin/nwalkers), flat=True)
@@ -340,7 +342,7 @@ class Inverse:
            pickle.dump(solution, f)
        subprocess.call('rm -rf '+name+'.h5',shell=True)
       
-       return traces, sampler
+       return traces
   
    def mcmc(self,name=None):
        """
