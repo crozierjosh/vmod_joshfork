@@ -76,8 +76,8 @@ class Inverse:
            params (array): parameters for the model with the minimum residual
        """
        self.minresidual=1e6
-       np.random.seed(98)
-       random.seed(98)
+       np.random.seed(42)
+       random.seed(42)
        if len(self.sources)==0:
            raise Exception('You need to include at least one source')
        if parallel:
@@ -265,8 +265,7 @@ class Inverse:
            move (str): update algorithm for the steps (metropolis, stretch, kde, de, desnooker, redblue)
            use_uncertainty_hyperparam: True to use an extra hyperparameter to auto-scale
                 uncertainties.
-            nwalkers_per_dim: use to control number of chains/walkers
-
+         
        Returns:
            traces (array): traces that will give the posterior distribution for the parameters
        """
@@ -288,7 +287,7 @@ class Inverse:
        inis.append(0.0)
        lows.append(0.0)
        highs.append(1.0)
-       np.random.seed(98)
+       np.random.seed(42)
        steps,burnin,thin=self.get_numsteps()
        #rng = np.random.default_rng(seed=42)
        pos = np.array(inis) + 1e-4 * np.random.randn(nwalkers_per_dim*len(inis), len(inis)) #nwalkers per dim is a default of 2 to preserve orginal structure but i can edit it from my script now
@@ -330,16 +329,13 @@ class Inverse:
            sampler = emcee.EnsembleSampler(nwalkers, ndim, self.log_probability, moves=moves, backend=backend)
        try:
                sampler.run_mcmc(pos, int(steps/nwalkers),skip_initial_state_check=True, progress=True)
-               #full_chain = sampler.get_chain()  
-               #np.save(name+'_full_chain.npy', full_chain)
-               print("Acceptance fraction per walker:", sampler.acceptance_fraction)
-               print("Mean acceptance fraction:", np.mean(sampler.acceptance_fraction))
                try:
                     tau = sampler.get_autocorr_time()#quiet=True)
                     print("Autocorrelation times:", tau)
                     n_samplez = sampler.get_chain().shape[0]
                     print(f"Effective samples per parameter: {n_samplez / tau}")
                     print(f"Need at least 50*tau = {50 * tau} samples")
+                #   print("Recommended min steps per walker:", 50*max(tau))
                except Exception as e:
                    print("Autocorr warning:", e)
                traces = sampler.get_chain(discard=int(burnin/nwalkers), thin=int(thin/nwalkers), flat=True)
@@ -348,8 +344,11 @@ class Inverse:
                reader = emcee.backends.HDFBackend(name+'.h5')
                traces = reader.get_chain(discard=int(burnin/nwalkers), thin=int(thin/nwalkers), flat=True)
 
-       full_chain = sampler.get_chain()
+       full_chain = sampler.get_chain()  
+       # np.save(name+'_full_chain.npy', full_chain)
+
        traces=traces.T.tolist()[0:-1]
+      
        traces,labels=self.traces2lin(traces)
       
        if name is None:
