@@ -167,7 +167,12 @@ class Inverse:
            log_prior (float): logarithm of the prior probability
        """
        j=0
-       if not -10<theta[-1]<10:
+       # in general user provided data uncertainty estimates will be a lower bound
+       # on total uncertainty, but uncertainty might be higher than estimated data
+       # uncertainty, so adding a hyperparameter that lets global data uncertainty
+       # increase if needed can be helpful. Note that the upper limit of 10 is
+       # arbitrary, ideally user-specified priors should be implemented.
+       if not 0<theta[-1]<10:
            return -np.inf
       
        for k,source in enumerate(self.sources):
