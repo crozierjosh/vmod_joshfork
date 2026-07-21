@@ -167,7 +167,7 @@ class Inverse:
            log_prior (float): logarithm of the prior probability
        """
        j=0
-       if not -10<theta[-1]<10:
+       if not 0<theta[-1]<10:
            return -np.inf
       
        for k,source in enumerate(self.sources):
@@ -335,7 +335,7 @@ class Inverse:
                print("Acceptance fraction per walker:", sampler.acceptance_fraction)
                print("Mean acceptance fraction:", np.mean(sampler.acceptance_fraction))
                try:
-                    tau = sampler.get_autocorr_time()#quiet=True)
+                    tau = sampler.get_autocorr_time(quiet=True)
                     print("Autocorrelation times:", tau)
                     n_samplez = sampler.get_chain().shape[0]
                     print(f"Effective samples per parameter: {n_samplez / tau}")

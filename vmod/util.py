@@ -923,8 +923,8 @@ def plot_gnss_data(names, lons, lats, uxs, uys, uzs, sxs, sys, szs, scalebar=10,
     import xarray as xr
     import pandas as pd
 
-    interlon=np.round(np.abs(np.max(lons)-np.min(lons))*0.5,1)
-    interlat=np.round(np.abs(np.max(lats)-np.min(lats))*0.5,1)
+    interlon=np.round(np.abs(np.max(lons)-np.min(lons))*0.09,1) #this is the distance that will be added to the limits of the map
+    interlat=np.round(np.abs(np.max(lats)-np.min(lats))*0.09,1)  #this is the distance that will be added to the limits of the map, use for 'zooming in'
     inter=np.max([interlon,interlat])
     region=[np.min(lons)-interlon,np.max(lons)+interlon,np.min(lats)-interlat,np.max(lats)+interlat]
 
@@ -1047,42 +1047,42 @@ def plot_gnss_data(names, lons, lats, uxs, uys, uzs, sxs, sys, szs, scalebar=10,
 
     if show_names:
         if fontsize is None:
-            fig.text(x=lons,y=np.array(lats)-float(inter/20),text=names,fill='white',font="30p,Helvetica,black")
+            fig.text(x=lons,y=np.array(lats)-float(inter/20),text=names,fill='white@50',font="30p,Helvetica,black")
         else:
-            fig.text(x=lons,y=np.array(lats)-float(inter/20),text=names,fill='white',font=f'{fontsize}p,Helvetica,black')
+            fig.text(x=lons,y=np.array(lats)-float(inter/20),text=names,fill='white@50',font=f'{fontsize}p,Helvetica,black')
 
 
     fig.velo(
         data=df,
         region=region,
-        pen="2p,blue",
-        line="2p,blue",
+        pen="4p,blue",
+        line="4p,blue",
         projection='M8i',
         spec="e"+str(0.25/(arrowscale*1e2))+"/0.39/10",
-        vector="0.4c+p0.5p+e+gblue",
+        vector="0.3c+p0.4p+e+gblue+n",
     )
 
     fig.velo(
         data=df1,
         region=region,
-        pen="2p,red",
-        line="2p,red",
+        pen="4p,red",
+        line="4p,red",
         projection='M8i',
         spec="e"+str(0.25/(arrowscale*1e2))+"/0.39/10",
-        vector="0.4c+p0.5p+e+gred",
+        vector="0.3c+p0.4p+e+gred+n",
     )
 
-    #new, draw another dataset on top using pink and purple
+    #new, draw another dataset on top
     if uxs2 is not None:
-        fig.velo(data=df2, region=region, pen="2p,pink", line="2p,pink", projection='M8i',
-                 spec="e"+str(0.25/(arrowscale*1e2))+"/0.39/10", vector="0.4c+p0.5p+e+gpink")
+        fig.velo(data=df2, region=region, pen="2p,red", line="2p,red", projection='M8i',
+                 spec="e"+str(0.25/(arrowscale*1e2))+"/0.39/10", vector="0.3c+p0.4p+e+gred+n")
         if uzs2 is not None:
-            fig.velo(data=df3, region=region, pen="2p,purple", line="2p,purple", projection='M8i',
-                     spec="e"+str(0.25/(arrowscale*1e2))+"/0.39/10", vector="0.4c+p0.5p+e+gpurple")
+            fig.velo(data=df3, region=region, pen="2p,blue", line="2p,blue", projection='M8i',
+                     spec="e"+str(0.25/(arrowscale*1e2))+"/0.39/10", vector="0.3c+p0.4p+e+gblue+n") #+n ensures that the arrowhead is always shown regardless of vector length
 
     if points is not None:
         for i in range(len(points)):
-            fig.plot(x=points[i][0], y=points[i][1], style="a0.3", pen="3p,black")
+            fig.plot(x=points[i][0], y=points[i][1], style="a0.2", pen="2p,black")
             if epoints is not None:
                 if not len(epoints)==len(points):
                     raise Exception('The uncertainties and points do not have the same size')
@@ -1091,7 +1091,7 @@ def plot_gnss_data(names, lons, lats, uxs, uys, uzs, sxs, sys, szs, scalebar=10,
             if lpoints is not None:
                 if not len(lpoints)==len(points):
                     raise Exception('The labels and points do not have the same size')
-                fig.text(x=points[i][0],y=points[i][1]-float(inter/20),text=lpoints[i],font="20p,Helvetica,black")
+                fig.text(x=points[i][0],y=points[i][1]-float(inter/20),text=lpoints[i],font="10p,Helvetica,black")
 
 
 
