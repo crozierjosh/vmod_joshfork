@@ -1099,7 +1099,7 @@ def plot_gnss_data(names, lons, lats, uxs, uys, uzs, sxs, sys, szs, scalebar=10,
 
     return fig
     
-def plot_insar_pygmt(csvfile, data=None, maskfile=None, scalebar=10, output='figure_pygmt.png', title=None, points=None, epoints=None, lpoints=None):
+def plot_insar_pygmt(csvfile, data=None, maskfile=None, scalebar=10, output='figure_pygmt.png', title=None, points=None, epoints=None, lpoints=None, cmap="vik"):
     """
     Plots InSAR dataset with pygmt from csv file
 
@@ -1113,19 +1113,20 @@ def plot_insar_pygmt(csvfile, data=None, maskfile=None, scalebar=10, output='fig
         points (array): coordinate points, if None no points will be plotted
         epoints (array): error bars in degrees for 'points'. It needs to have the same size of 'points', if None no error bars will be plotted
         lpoints (array): labels for 'points', if None no labels will be plotted
+        cmap (str): PyGMT colormap name (default "vik", a blue-white-red diverging palette)
     """
     if data is None:
-        archivo=open(quadfile,'r')
+        archivo=open(csvfile,'r')
         lines=archivo.readlines()
         archivo.close()
-    
+
         dim=[int(lines[0].split('Dimensions:')[1].split(',')[i]) for i in range(2)]
         if maskfile:
             mask_des=np.load(maskfile)
         else:
             mask_des=np.zeros((dim[0],dim[1]))
             mask_des=mask_des>0
-        dataset,extent,rcoords=get_defmap(csvfile,mask=maskfile,trans=False,cref=False)
+        dataset,extent,rcoords=get_defmap(csvfile,mask=mask_des,trans=False,cref=False)
     else:
         dataset,extent=los2npy(data,csvfile,maskfile=maskfile)
 
@@ -1137,11 +1138,12 @@ def plot_insar_pygmt(csvfile, data=None, maskfile=None, scalebar=10, output='fig
 
     coords=[float(line.split(',')[i]) for i in range(len(line.split(',')))]
 
-    fig = plot_insar(dataset, extent, scalebar, output, title, points, epoints, lpoints)
+    fig = plot_insar(dataset, extent, scalebar, output, title, points, epoints, lpoints, cmap=cmap)
+    # Note: fig.show() is intentionally omitted here to avoid PDF temp-file
+    # permission errors on Windows when a PDF viewer holds a lock on the file.
+    # The figure is already saved to disk by plot_insar via fig.savefig(output).
 
-    fig.show()
-
-def plot_insar_data(data, mask, boxes, extent, scalebar=10, output='figure_pygmt.png', title=None, points=None, epoints=None, lpoints=None, fontsize=None):
+def plot_insar_data(data, mask, boxes, extent, scalebar=10, output='figure_pygmt.png', title=None, points=None, epoints=None, lpoints=None, fontsize=None, cmap="vik"):
     """
     Plots InSAR dataset with pygmt
 
@@ -1155,17 +1157,18 @@ def plot_insar_data(data, mask, boxes, extent, scalebar=10, output='figure_pygmt
         points (array): coordinate points, if None no points will be plotted
         epoints (array): error bars in degrees for 'points'. It needs to have the same size of 'points', if None no error bars will be plotted
         lpoints (array): labels for 'points', if None no labels will be plotted
+        cmap (str): PyGMT colormap name (default "vik", a blue-white-red diverging palette)
     """
     dataset = np.full(mask.shape, np.nan)
     for i, box in enumerate(boxes):
         dataset[box[0]:box[1],box[2]:box[3]] = data[i]
     dataset[mask] = np.nan
 
-    fig = plot_insar(dataset, extent, scalebar, output, title, points, epoints, lpoints, fontsize)
+    fig = plot_insar(dataset, extent, scalebar, output, title, points, epoints, lpoints, fontsize, cmap=cmap)
 
     return fig
 
-def plot_insar(dataset, extent, scalebar=10, output='figure_pygmt.png', title=None, points=None, epoints=None, lpoints=None, fontsize=None):
+def plot_insar(dataset, extent, scalebar=10, output='figure_pygmt.png', title=None, points=None, epoints=None, lpoints=None, fontsize=None, cmap="vik"):
     import pygmt
     import xarray as xr
 
@@ -1227,7 +1230,7 @@ def plot_insar(dataset, extent, scalebar=10, output='figure_pygmt.png', title=No
 
     max=np.nanmax(np.abs(dataset)*1e2)*0.8
 
-    pygmt.makecpt(cmap="jet", series=[-max, max])
+    pygmt.makecpt(cmap=cmap, series=[-max, max])
 
     fig.grdimage(
         grid=data,
@@ -1239,7 +1242,7 @@ def plot_insar(dataset, extent, scalebar=10, output='figure_pygmt.png', title=No
     )
     fig.colorbar(frame="af+lLOS deformation (cm)")
 
-    pygmt.makecpt(cmap="jet", series=[-max, max])
+    pygmt.makecpt(cmap=cmap, series=[-max, max])
 
     lonll=np.percentile(lons,20)
     latll=np.percentile(lats,20)
