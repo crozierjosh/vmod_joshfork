@@ -841,7 +841,7 @@ def plot_gnss(xs,ys,uxs,uys,uzs,title=None,names=None,euxs=None,euys=None,euzs=N
     ax.xaxis.set_major_locator(plt.MaxNLocator(4))
     plt.show()
 
-def plot_gnss_pygmt(csvfile, uxs=None, uys=None, uzs=None, scalebar=10, output='figure_pygmt.png', title=None, points=None, epoints=None, lpoints=None, errx=None, erry=None, errz=None, arrowscale=0.01, ignore=[], fontsize = None, uxs2=None, uys2=None, uzs2=None, show_names= True):
+def plot_gnss_pygmt(csvfile, uxs=None, uys=None, uzs=None, scalebar=10, output='figure_pygmt.png', title=None, points=None, epoints=None, lpoints=None, errx=None, erry=None, errz=None, arrowscale=0.01, ignore=[], fontsize = None, uxs2=None, uys2=None, uzs2=None, show_names= True,pointcolors = None, region = None, outline = None):
     """
     Plots GNSS dataset with pygmt from csv file
 
@@ -861,6 +861,7 @@ def plot_gnss_pygmt(csvfile, uxs=None, uys=None, uzs=None, scalebar=10, output='
         errz (array): uncertainties in the deformation in the vertical component
         arrowscale (float): scale for the velocities in meters per year, default 1cm/yr
         ignore (array): names of the stations that will not be plotted
+        pointcolors: colors for the stars, if none it will use default black
     """
     names,lons,lats,uxsf,uysf,uzsf,euxs,euys,euzs=read_gnss_csv(csvfile,ignore=ignore)
 
@@ -891,11 +892,11 @@ def plot_gnss_pygmt(csvfile, uxs=None, uys=None, uzs=None, scalebar=10, output='
         sys=erry
         szs=errz
 
-    fig = plot_gnss_data(names, lons, lats, uxs, uys, uzs, sxs, sys, szs, scalebar, output, title, points, epoints, lpoints, arrowscale, ignore, fontsize,uxs2, uys2, uzs2, show_names)
+    fig = plot_gnss_data(names, lons, lats, uxs, uys, uzs, sxs, sys, szs, scalebar, output, title, points, epoints, lpoints, arrowscale, ignore, fontsize,uxs2, uys2, uzs2, show_names, pointcolors, region, outline)
 
     fig.show()
 
-def plot_gnss_data(names, lons, lats, uxs, uys, uzs, sxs, sys, szs, scalebar=10, output='figure_pygmt.png', title=None, points=None, epoints=None, lpoints=None, arrowscale=None, ignore=[], fontsize=None,  uxs2 = None, uys2 =None, uzs2 =None, show_names = True):
+def plot_gnss_data(names, lons, lats, uxs, uys, uzs, sxs, sys, szs, scalebar=10, output='figure_pygmt.png', title=None, points=None, epoints=None, lpoints=None, arrowscale=None, ignore=[], fontsize=None,  uxs2 = None, uys2 =None, uzs2 =None, show_names = True, pointcolors = None, region = None, outline = None): #add option to change the color of the stars
     """
     Plots GNSS dataset with pygmt, horizontal velocities are represented by blue arrows
     vertical velocities are represented by red arrows
@@ -918,20 +919,37 @@ def plot_gnss_data(names, lons, lats, uxs, uys, uzs, sxs, sys, szs, scalebar=10,
         lpoints (array): labels for 'points', if None no labels will be plotted
         arrowscale (float): scale for the velocities in meters per year, default 1cm/yr
         ignore (array): names of the stations that will not be plotted
+        point colors (array): colors for the points/stars, if none it will use default colors
+        region: adds a region to the map, if none it will use the limits of the stations which can get annoying
     """
     import pygmt
     import xarray as xr
     import pandas as pd
 
-    interlon=np.round(np.abs(np.max(lons)-np.min(lons))*0.09,1) #this is the distance that will be added to the limits of the map
-    interlat=np.round(np.abs(np.max(lats)-np.min(lats))*0.09,1)  #this is the distance that will be added to the limits of the map, use for 'zooming in'
-    inter=np.max([interlon,interlat])
-    region=[np.min(lons)-interlon,np.max(lons)+interlon,np.min(lats)-interlat,np.max(lats)+interlat]
+    interlon=np.round(np.abs(np.max(lons)-np.min(lons))*0.07,3) #this is the distance that will be added to the limits of the map
+    interlat=np.round(np.abs(np.max(lats)-np.min(lats))*0.07, 3)  #this is the distance that will be added to the limits of the map, use for 'zooming in'
+
+    if region is None:
+        region=[np.min(lons)-interlon, np.max(lons)+interlon, np.min(lats)-interlat, np.max(lats)+interlat]
+
+    lonspan = region[1]-region[0]
+    latspan = region[3]-region[2]
+    inter = np.round(np.max([lonspan, latspan])/5, 2)
+
+
+    #inter=np.max([interlon,interlat])
+   #region=[np.min(lons)-interlon,np.max(lons)+interlon,np.min(lats)-interlat,np.max(lats)+interlat]
+
+    #lonspan = region[1]-region[0]
+    #latspan = region[3]-region[2]
+    #inter = np.round(np.max([lonspan, latspan])/5, 2)
 
     stns=[[lons[i],lats[i]] for i in range(len(lons))]
 
-    lons=lons.tolist()+[region[0]+interlon/2]
-    lats=lats.tolist()+[region[-1]-interlat]
+    # arrwo legend 10% in from left, 10% down from top
+    lons=lons.tolist()+[region[0]+0.09*lonspan] #these control where the arrow legend is placed, the first one is the x coordinate and the second one is the y coordinate
+    lats=lats.tolist()+[region[3]-0.18*latspan]
+
     if arrowscale is None:
         hvel=np.max(np.sqrt((uxs**2+uys**2)))
         vvel=np.max(uzs)
@@ -1040,8 +1058,11 @@ def plot_gnss_data(names, lons, lats, uxs, uys, uzs, sxs, sys, szs, scalebar=10,
         shading=True,
     )
 
-    lonll=np.round(region[0]+interlon/2,1)
-    latll=np.round(region[2]+interlat/2,2)
+  #  lonll=np.round(region[0]+interlon/2,1)
+  #  latll=np.round(region[2]+interlat/2,2)
+
+    lonll = region[0] + 0.15*lonspan
+    latll = region[2] + 0.08*latspan
 
     fig.coast(shorelines="0.5p,black",lakes='+l',map_scale=str(lonll)+'/'+str(latll)+'/'+str(latll)+'/'+str(scalebar),water="white")
 
@@ -1074,15 +1095,16 @@ def plot_gnss_data(names, lons, lats, uxs, uys, uzs, sxs, sys, szs, scalebar=10,
 
     #new, draw another dataset on top
     if uxs2 is not None:
-        fig.velo(data=df2, region=region, pen="2p,red", line="2p,red", projection='M8i',
-                 spec="e"+str(0.25/(arrowscale*1e2))+"/0.39/10", vector="0.3c+p0.4p+e+gred+n")
+        fig.velo(data=df2, region=region, pen="2p,cyan", line="2p,cyan", projection='M8i',
+                 spec="e"+str(0.25/(arrowscale*1e2))+"/0.39/10", vector="0.3c+p0.4p+e+gcyan+n")
         if uzs2 is not None:
-            fig.velo(data=df3, region=region, pen="2p,blue", line="2p,blue", projection='M8i',
-                     spec="e"+str(0.25/(arrowscale*1e2))+"/0.39/10", vector="0.3c+p0.4p+e+gblue+n") #+n ensures that the arrowhead is always shown regardless of vector length
+            fig.velo(data=df3, region=region, pen="2p, pink", line="2p,pink", projection='M8i',
+                     spec="e"+str(0.25/(arrowscale*1e2))+"/0.39/10", vector="0.3c+p0.4p+e+gpink+n") #+n ensures that the arrowhead is always shown regardless of vector length
 
     if points is not None:
         for i in range(len(points)):
-            fig.plot(x=points[i][0], y=points[i][1], style="a0.2", pen="2p,black")
+            color = pointcolors[i] if pointcolors is not None else "black"
+            fig.plot(x=points[i][0], y=points[i][1], style="a0.6", pen="1p,black", fill=color)
             if epoints is not None:
                 if not len(epoints)==len(points):
                     raise Exception('The uncertainties and points do not have the same size')
@@ -1093,7 +1115,8 @@ def plot_gnss_data(names, lons, lats, uxs, uys, uzs, sxs, sys, szs, scalebar=10,
                     raise Exception('The labels and points do not have the same size')
                 fig.text(x=points[i][0],y=points[i][1]-float(inter/20),text=lpoints[i],font="10p,Helvetica,black")
 
-
+    if outline is not None:
+        fig.plot(x=outline[0], y=outline[1], pen="1.5p,orange")
 
     fig.savefig(output)
 

@@ -76,6 +76,9 @@ class Inverse:
            params (array): parameters for the model with the minimum residual
        """
        self.minresidual=1e6
+
+       #specify seed, change here too!
+       
        np.random.seed(98)
        random.seed(98)
        if len(self.sources)==0:
@@ -322,7 +325,7 @@ class Inverse:
       
        backend = emcee.backends.HDFBackend(name+'.h5')
        backend.reset(nwalkers, ndim)
-      
+       print(f"backend file: {name}.h5")
  
        if move is None:
            sampler = emcee.EnsembleSampler(nwalkers, ndim, self.log_probability, backend=backend)
@@ -343,6 +346,7 @@ class Inverse:
                except Exception as e:
                    print("Autocorr warning:", e)
                traces = sampler.get_chain(discard=int(burnin/nwalkers), thin=int(thin/nwalkers), flat=True)
+
        except KeyboardInterrupt:
                print('Inversion interrupted')
                reader = emcee.backends.HDFBackend(name+'.h5')
@@ -351,6 +355,7 @@ class Inverse:
        full_chain = sampler.get_chain()
        traces=traces.T.tolist()[0:-1]
        traces,labels=self.traces2lin(traces)
+       log_prob = sampler.get_log_prob()
       
        if name is None:
            name=''.join(random.choices(string.ascii_lowercase, k=5))
@@ -363,9 +368,9 @@ class Inverse:
            pickle.dump(solution, f)
 
        #subprocess.call('rm -rf '+name+'.h5',shell=True)
-       os.remove(name+'.h5')
-      
-       return traces, full_chain
+
+    
+       return traces, full_chain, log_prob
   
    def mcmc(self,name=None):
        """
